@@ -37,14 +37,8 @@ int main(int argc, const char* argv[]) {
         routeLength++; //EOF is not a part of the original file and therefore incrementing the variable even after hitting means that the variable is equal to the file size
     }
     rewind(file);
-    if (!(routeLength & 0x1)) { //The search loop requires an odd number of moves total to avoid invoking UB and get a more efficient loop, so if the route length is even we add 1 to it and insert a move with a direction of 0 onto the end of the route
-        routeLength++;
-        route = malloc(routeLength*sizeof(char)); //Create an array who's size is based on the route file size
-        route[routeLength - 1] = 0;
-    }
-    else {
-        route = malloc(routeLength*sizeof(char)); //Create an array who's size is based on the route file size
-    }
+    //The search loop reads two moves at a time, so add some padding at the end so we don't read past the array bounds.
+    route = calloc(routeLength+10, sizeof(char)); //Create an array who's size is based on the route file size
     fread(route, routeLength, 1, file);
     fclose(file);
     
