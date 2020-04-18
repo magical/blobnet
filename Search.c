@@ -146,10 +146,10 @@ int main(int argc, const char* argv[]) {
 
 void* searchPools(void* args) {
     POOLINFO *poolInfo = ((POOLINFO*) args);
-
     for (unsigned long seed = poolInfo->poolStart; seed <= poolInfo->poolEnd; seed++) {
         searchSeed(seed);
     }
+    return NULL;
 }
 
 void searchSeed(unsigned long seed) {
