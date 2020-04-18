@@ -128,6 +128,7 @@ int main(int argc, const char* argv[]) {
         POOLINFO* poolInfo = malloc(sizeof(POOLINFO)); //Starting seed and ending seed
         poolInfo->poolStart = seedPoolSize * threadNum;
         poolInfo->poolEnd = seedPoolSize * (threadNum + 1) - 1;
+        printf("Thread #%ld: start=%#lx\tend=%#lx\n", threadNum, poolInfo->poolStart, poolInfo->poolEnd);
 
         pthread_create(&threadIDs[threadNum], NULL, searchPools, (void*) poolInfo);
     }
