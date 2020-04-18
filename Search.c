@@ -25,18 +25,18 @@ typedef struct BLOB {
 } BLOB;
 
 static int canEnter(unsigned char tile);
-void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]);
-void moveChip(char dir, int *chipIndex, unsigned char upper[]);
-void searchSeed(unsigned long seed);
-void* searchPools(void* args);
+static void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]);
+static void moveChip(char dir, int *chipIndex, unsigned char upper[]);
+static void searchSeed(unsigned long seed);
+static void* searchPools(void* args);
 
 static char left(char dir);
 static char back(char dir);
 static char right(char dir);
 
-void nextvalue(unsigned long* currentValue);
+static void nextvalue(unsigned long* currentValue);
 void advance79(unsigned long* currentValue);
-void randomp4(unsigned long* currentValue, int* array);
+static void randomp4(unsigned long* currentValue, int* array);
 
 typedef struct POOLINFO {
     unsigned long poolStart;
@@ -149,7 +149,7 @@ int main(int argc, const char* argv[]) {
     printf("average %.1f us/seed\n", (time_b-time_a) * (1e6 / CLOCKS_PER_SEC) / lastSeed);
 }
 
-void* searchPools(void* args) {
+static void* searchPools(void* args) {
     POOLINFO *poolInfo = ((POOLINFO*) args);
     for (unsigned long seed = poolInfo->poolStart; seed <= poolInfo->poolEnd; seed++) {
         searchSeed(seed);
@@ -157,7 +157,7 @@ void* searchPools(void* args) {
     return NULL;
 }
 
-void searchSeed(unsigned long seed) {
+static void searchSeed(unsigned long seed) {
     unsigned long startingSeed = seed;
     int chipIndex = chipIndexInitial;
     unsigned char map[1024];
@@ -182,13 +182,13 @@ void searchSeed(unsigned long seed) {
     printf("Successful seed: %lu\n", startingSeed);
 }
 
-void moveChip(char dir, int *chipIndex, unsigned char map[]) {
+static void moveChip(char dir, int *chipIndex, unsigned char map[]) {
     *chipIndex = *chipIndex + dir;
     if (map[*chipIndex] == COSMIC_CHIP) map[*chipIndex] = FLOOR;
 }
 
 
-void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]) {
+static void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]) {
     int directions[4] = {b->dir, left(b->dir), back(b->dir), right(b->dir)};
 
     randomp4(seed, directions);
@@ -245,7 +245,7 @@ static char right(char dir) {
     }
 }
 
-void nextvalue(unsigned long* currentValue)
+static void nextvalue(unsigned long* currentValue)
 {
     *currentValue = ((*currentValue * 1103515245UL) + 12345UL) & 0x7FFFFFFFUL; //Same generator/advancement Tile World uses
 }
@@ -261,7 +261,7 @@ void advance79(unsigned long* currentValue)
 /* Randomly permute a list of four values. Three random numbers are
  * used, with the ranges [0,1], [0,1,2], and [0,1,2,3].
  */
-void randomp4(unsigned long* currentValue, int* array)
+static void randomp4(unsigned long* currentValue, int* array)
 {
     int	n, t;
 
