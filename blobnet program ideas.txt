@@ -1,0 +1,91 @@
+Blobnet seed search program ideas/info:
+
+Using TW random method,
+Every blob consumes only 1 RNG value per move; 80 blobs total, this means that a single blob at any level point can be simulated via (RNG * 80 * currentMove - 1) + (RNG * #inList)
+According to pieguy RNG can be advanced (3*79)=237 times with a single multiply and add
+"A single blob's trajectory can be computed quickly as long as it's not possible for it to collide with other blobs." -pieguy
+"hmm, that's actually really clever since most cases, especially early on would only have one blob in the "danger zone" and so you'd just compute that blob at that exact moment" -IHNN
+
+pieguy's method for figuring out to advance 237 times: 
+"To compute these numbers, initialize the RNG to 0, advance it 237 times, and get the result (603737549).  Then initialize the RNG to 1, advance it 237 times, and get the result (1808130602).  The second number minus the first number is the one you multiply.  The first number is the one you add."
+(initialize the RNG to 0 means to literally set the value to 0x0), see the rngAdvanceXGen.c file created, mind you there's no reason to go through 237 values, so use value*2441329573 + 2062159411 & 0x7FFFFFFFUL to go through 79 iterations
+
+We don't have to program anything other than just blobs and Chip, chip move code can be streamlined by not checking if the move is valid or anything, simply just moving him and checking for blobs on that tile is enough,
+Bottom layer isn't going to be needed as all blobs are only on floor, and Chip can just be kept track of via position and doesn't need to exist on the map,
+We can use an index into a 1024 byte array instead of position math
+
+Use C or C++ for the pure speed alone
+
+
+
+
+
+
+
+
+
+A Sickly Silver MoonToday at 01:09
+also still about that program (that i've started writing, no promises on quality), i understand that we can simulate a blob at pretty much any arbitary point, but what would that actually be used for?
+and would it not just be more effective to simulate the entire level and just run through each seed that way?
+IHNNToday at 01:12
+Because on any given route, you know when Chip is in danger and so would only need to know the location of one* blob on any given move
+and so for just the first blob (RDLL) you would need to use 160 random numbers if simulating the whole level, but only 2 if simulating check by check
+The next blob would then need another 100+, while when you get there you'd only need to run 4 random numbers to determine where it would be
+A Sickly Silver MoonToday at 01:14
+oh i see
+IHNNToday at 01:14
+and so for the first 5 seconds (where 99+% of seeds will die) you'd only need to check about 50 random numbers with the efficient approach, while you'd need over 1000 with the full level simulation
+tbh I'd even code it to only do the naive approach and then if there's a success, double check it on a full level simulation
+A Sickly Silver MoonToday at 01:15
+naive approach?
+IHNNToday at 01:15
+Ignore blobs leaving their respective areas and interfering with each other
+Though hmm that might create a false negative
+never mind then :smile:
+A Sickly Silver MoonToday at 01:16
+also second problem: i hope you don't want to simulate each blob indivually as we get to it
+because i don't think there's a sane way to program that considering we have... a lot of routes
+IHNNToday at 01:16
+Sure there is
+Give each blob a set of coordinates that it influences
+When Chip will take a step into those coordinates, check that blob position
+and you can outright ignore 8 blobs in 100% of scenarios
+A Sickly Silver MoonToday at 01:17
+right because they're trapped within their grids
+would we even have to keep track of any collisions?
+IHNNToday at 01:19
+Though due to blobs wandering between rooms (relevant when doing part of a subsection and then returning later, or collecting chips around 3x3 rooms) I think the best speed/complexity tradeoff would be to efficiently check the first 5-10 seconds, and then if the seed survives that then check it on the full level simulation
+A Sickly Silver MoonToday at 01:19
+yeah that's honestly what i was thinking
+IHNNToday at 01:19
+Should speed up the search by an order of magnitude
+at least
+A Sickly Silver MoonToday at 01:20
+because remember: i'm bad at programming and i don't want to have to do the collisions checks unless i absoutly have to
+IHNNToday at 01:20
+pretty sure it's necessary to implement
+A Sickly Silver MoonToday at 01:23
+well that's gonna be a bitch
+IHNNToday at 01:24
+Wouldn't you need to make sure blobs have the right move options available because of the chips anyway
+so wouldn't you just run down the list of blobs and move them one at a time, checking for their open moves when it's their turn and no sooner?
+A Sickly Silver MoonToday at 01:25
+when i say the collisions checks i mean in the first 10 seconds or so
+when you're only testing the indivuals
+IHNNToday at 01:25
+oh, that shouldn't be necessary I don't think
+A Sickly Silver MoonToday at 01:25
+full level test collisions checks will be fine
+because its just "can this blob move there? not a floor? no"
+ok then the first 10 seconds or so should be pretty simple
+IHNNToday at 01:26
+Even in this crazy route https://discordapp.com/channels/343036755999457281/343071314707349506/699639925246525460
+The first collision potential that matters comes pretty far in
+A Sickly Silver MoonToday at 01:27
+like you said give every blob its own 'domain', soon as Chip enters that are simulate up to that move, see if it killed chip, move on
+IHNNToday at 01:27
+that "domain" will have to include the adjacent chips
+A Sickly Silver MoonToday at 01:27
+i know
+IHNNToday at 01:27
+just making sure
