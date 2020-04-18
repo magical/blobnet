@@ -43,7 +43,7 @@ int main(int argc, const char* argv[]) {
     fread(mapInitial, sizeof(mapInitial), 1, file);
     fclose(file);
     
-    file = fopen("route.bin", "rb");
+    file = fopen("route.txt", "rb");
     char character;
     while ((character = fgetc(file)) != EOF) { //Sharpeye's code for getting a file size that doesn't rely on SEEK_END
         routeLength++; //EOF is not a part of the original file and therefore incrementing the variable even after hitting means that the variable is equal to the file size
