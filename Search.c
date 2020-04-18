@@ -3,12 +3,18 @@
 #include <string.h>
 #include <pthread.h>
 #include "random.h"
-#include "blob.h"
 #include "macros.h"
 #include "direction.h"
 
-void searchSeed(unsigned long seed);
+typedef struct BLOB {
+    int index;
+    char dir;
+} BLOB;
+
+static int canEnter(unsigned char tile);
+void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]);
 void moveChip(char dir, int *chipIndex, unsigned char upper[]);
+void searchSeed(unsigned long seed);
 void* searchPools(void* args);
 
 typedef struct POOLINFO {
@@ -140,4 +146,28 @@ void searchSeed(unsigned long seed) {
 void moveChip(char dir, int *chipIndex, unsigned char map[]) {
     *chipIndex = *chipIndex + dir;
     if (map[*chipIndex] == COSMIC_CHIP) map[*chipIndex] = FLOOR;
+}
+
+
+void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]) {
+    int directions[4] = {b->dir, left(b->dir), back(b->dir), right(b->dir)};
+
+    randomp4(seed, directions);
+
+    for (int i=0; i<4; i++) {
+        int dir = directions[i];
+        unsigned char tile = upper[b->index + dir];
+
+        if (canEnter(tile)) {
+            upper[b->index] = FLOOR;
+            upper[b->index + dir] = BLOB_N;
+            b->dir = dir;
+            b->index += dir;
+            return;
+        }
+    }
+}
+
+static int canEnter(unsigned char tile) {
+    return (tile == FLOOR);
 }
