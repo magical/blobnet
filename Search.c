@@ -3,8 +3,14 @@
 #include <string.h>
 #include <pthread.h>
 #include "random.h"
-#include "macros.h"
 #include "direction.h"
+
+// Tiles
+#define FLOOR       0x00
+#define COSMIC_CHIP 0x02
+#define GRAVEL      0x2D
+#define BLOB_N      0x5C
+#define CHIP_S      0x6E
 
 typedef struct BLOB {
     int index;
@@ -88,11 +94,13 @@ int main(int argc, const char* argv[]) {
         }
     }
     
-    threadIDs = malloc((NUM_THREADS - 1) * sizeof(pthread_t));
-    unsigned long lastSeed = 2147483647UL;
-    unsigned long seedPoolSize = lastSeed/NUM_THREADS;
+    long numThreads = strtol(getenv("NUMBER_OF_PROCESSORS"), NULL, 10); //This makes the entire program windows only
 
-    for (long threadNum = 0; threadNum < NUM_THREADS - 1; threadNum++) {  //Run a number of threads equal to system threads - 1
+    threadIDs = malloc((numThreads - 1) * sizeof(pthread_t));
+    unsigned long lastSeed = 2147483647UL;
+    unsigned long seedPoolSize = lastSeed/numThreads;
+
+    for (long threadNum = 0; threadNum < numThreads - 1; threadNum++) {  //Run a number of threads equal to system threads - 1
         POOLINFO* poolInfo = malloc(sizeof(POOLINFO)); //Starting seed and ending seed
         poolInfo->poolStart = seedPoolSize * threadNum;
         poolInfo->poolEnd = seedPoolSize * (threadNum + 1) - 1;
@@ -101,11 +109,11 @@ int main(int argc, const char* argv[]) {
     }
     
     POOLINFO* poolInfo = malloc(sizeof(POOLINFO)); //Use the already existing main thread to do the last pool
-    poolInfo->poolStart = seedPoolSize * (NUM_THREADS - 1);
+    poolInfo->poolStart = seedPoolSize * (numThreads - 1);
     poolInfo->poolEnd = lastSeed;
     searchPools((void*) poolInfo);
     
-    for (int t = 0; t < NUM_THREADS - 1; t++) { //Make the main thread wait for the other threads to finish so the program doesn't end early
+    for (int t = 0; t < numThreads - 1; t++) { //Make the main thread wait for the other threads to finish so the program doesn't end early
         pthread_join(threadIDs[t], NULL);
     }
 }
