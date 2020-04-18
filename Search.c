@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <time.h>
 #include "random.h"
 #include "direction.h"
 
@@ -97,8 +98,11 @@ int main(int argc, const char* argv[]) {
     long numThreads = strtol(getenv("NUMBER_OF_PROCESSORS"), NULL, 10); //This makes the entire program windows only
 
     threadIDs = malloc((numThreads - 1) * sizeof(pthread_t));
-    unsigned long lastSeed = 2147483647UL;
+    //unsigned long lastSeed = 2147483647UL;
+    unsigned long lastSeed = 100000;
     unsigned long seedPoolSize = lastSeed/numThreads;
+
+    clock_t time_a = clock();
 
     for (long threadNum = 0; threadNum < numThreads - 1; threadNum++) {  //Run a number of threads equal to system threads - 1
         POOLINFO* poolInfo = malloc(sizeof(POOLINFO)); //Starting seed and ending seed
@@ -116,6 +120,11 @@ int main(int argc, const char* argv[]) {
     for (int t = 0; t < numThreads - 1; t++) { //Make the main thread wait for the other threads to finish so the program doesn't end early
         pthread_join(threadIDs[t], NULL);
     }
+
+    clock_t time_b = clock();
+
+    printf("searched %ld seeds in %f ms\n", lastSeed, (time_b-time_a) * (1e3 / CLOCKS_PER_SEC));
+    printf("average %.1f us/seed\n", (time_b-time_a) * (1e6 / CLOCKS_PER_SEC) / lastSeed);
 }
 
 void* searchPools(void* args) {
