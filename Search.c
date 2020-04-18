@@ -38,11 +38,11 @@ static pthread_t* threadIDs;
 
 int main(int argc, const char* argv[]) {
     FILE *file;
-    
+
     file = fopen("blobnet.bin", "rb");
     fread(mapInitial, sizeof(mapInitial), 1, file);
     fclose(file);
-    
+
     file = fopen("route.txt", "rb");
     char character;
     while ((character = fgetc(file)) != EOF) { //Sharpeye's code for getting a file size that doesn't rely on SEEK_END
@@ -53,7 +53,7 @@ int main(int argc, const char* argv[]) {
     route = calloc(routeLength+10, sizeof(char)); //Create an array who's size is based on the route file size
     fread(route, routeLength, 1, file);
     fclose(file);
-    
+
     int listIndex = 0; //Put all the blobs into a list
     for (int c = 0; c < sizeof(mapInitial); c++) {
         char tile = mapInitial[c];
@@ -69,7 +69,7 @@ int main(int argc, const char* argv[]) {
                 break;
         }
     }
-    
+
     for (int r = 0; r < routeLength; r++) {
         char direction = route[r];
         switch (direction) {
@@ -93,7 +93,7 @@ int main(int argc, const char* argv[]) {
                 break;
         }
     }
-    
+
     long numThreads = strtol(getenv("NUMBER_OF_PROCESSORS"), NULL, 10); //This makes the entire program windows only
 
     threadIDs = malloc((numThreads - 1) * sizeof(pthread_t));
@@ -104,15 +104,15 @@ int main(int argc, const char* argv[]) {
         POOLINFO* poolInfo = malloc(sizeof(POOLINFO)); //Starting seed and ending seed
         poolInfo->poolStart = seedPoolSize * threadNum;
         poolInfo->poolEnd = seedPoolSize * (threadNum + 1) - 1;
-        
+
         pthread_create(&threadIDs[threadNum], NULL, searchPools, (void*) poolInfo);
     }
-    
+
     POOLINFO* poolInfo = malloc(sizeof(POOLINFO)); //Use the already existing main thread to do the last pool
     poolInfo->poolStart = seedPoolSize * (numThreads - 1);
     poolInfo->poolEnd = lastSeed;
     searchPools((void*) poolInfo);
-    
+
     for (int t = 0; t < numThreads - 1; t++) { //Make the main thread wait for the other threads to finish so the program doesn't end early
         pthread_join(threadIDs[t], NULL);
     }
@@ -120,7 +120,7 @@ int main(int argc, const char* argv[]) {
 
 void* searchPools(void* args) {
     POOLINFO *poolInfo = ((POOLINFO*) args);
-    
+
     for (unsigned long seed = poolInfo->poolStart; seed <= poolInfo->poolEnd; seed++) {
         searchSeed(seed);
     }
@@ -133,18 +133,18 @@ void searchSeed(unsigned long seed) {
     BLOB monsterList[80];
     memcpy(map, mapInitial, 1024);
     memcpy(monsterList, monsterListInitial, sizeof(struct BLOB)*80); //Set up copies of the arrays to be used so we don't have to read from file each time
-    
+
     moveChip(route[0], &chipIndex, map);
     int i=1;
     while (i < routeLength) {
         moveChip(route[i++], &chipIndex, map);
         if (map[chipIndex] == BLOB_N) return;
-        
+
         for (int j=0; j < 80; j++) {
             moveBlob(&seed, &monsterList[j], map);
         }
         if (map[chipIndex] == BLOB_N) return;
-        
+
         moveChip(route[i++], &chipIndex, map);
         if (map[chipIndex] == BLOB_N) return;
     }
