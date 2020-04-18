@@ -120,7 +120,7 @@ int main(int argc, const char* argv[]) {
     threadIDs = malloc((numThreads - 1) * sizeof(pthread_t));
     //unsigned long lastSeed = 2147483647UL;
     unsigned long lastSeed = 100000;
-    unsigned long seedPoolSize = lastSeed/(numThreads-1);
+    unsigned long seedPoolSize = lastSeed/numThreads;
 
     clock_t time_a = clock();
 
@@ -136,6 +136,7 @@ int main(int argc, const char* argv[]) {
     POOLINFO* poolInfo = malloc(sizeof(POOLINFO)); //Use the already existing main thread to do the last pool
     poolInfo->poolStart = seedPoolSize * (numThreads - 1);
     poolInfo->poolEnd = lastSeed;
+    printf("Main thread: start=%#lx\tend=%#lx\n", poolInfo->poolStart, poolInfo->poolEnd);
     searchPools((void*) poolInfo);
 
     for (int t = 0; t < numThreads - 1; t++) { //Make the main thread wait for the other threads to finish so the program doesn't end early
