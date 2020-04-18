@@ -32,7 +32,8 @@ typedef struct POOLINFO {
 static char* route;
 static int routeLength = 0;
 
-static BLOB monsterListInitial[80]; //80 blobs in the level, the list simply keeps track of the current position/index of each blob as it appears in the level (order is of course that of the monster list)
+#define NUM_BLOBS 80
+static BLOB monsterListInitial[NUM_BLOBS]; //80 blobs in the level, the list simply keeps track of the current position/index of each blob as it appears in the level (order is of course that of the monster list)
 static unsigned char mapInitial[1024];
 static int chipIndexInitial;
 static pthread_t* threadIDs;
@@ -61,8 +62,10 @@ int main(int argc, const char* argv[]) {
         switch (tile) {
             case(BLOB_N): ;
                 BLOB b = {c, MOVE_UP}; //All the blobs are facing up
-                monsterListInitial[listIndex] = b;
-                listIndex++;
+                if (listIndex < NUM_BLOBS) {
+                    monsterListInitial[listIndex] = b;
+                    listIndex++;
+                }
                 break;
             case(CHIP_S): //Chip-S, the only Chip tile that appears in blobnet
                 chipIndexInitial = c;
@@ -142,9 +145,9 @@ void searchSeed(unsigned long seed) {
     unsigned long startingSeed = seed;
     int chipIndex = chipIndexInitial;
     unsigned char map[1024];
-    BLOB monsterList[80];
+    BLOB monsterList[NUM_BLOBS];
     memcpy(map, mapInitial, 1024);
-    memcpy(monsterList, monsterListInitial, sizeof(struct BLOB)*80); //Set up copies of the arrays to be used so we don't have to read from file each time
+    memcpy(monsterList, monsterListInitial, sizeof(struct BLOB)*NUM_BLOBS); //Set up copies of the arrays to be used so we don't have to read from file each time
 
     moveChip(route[0], &chipIndex, map);
     int i=1;
@@ -152,7 +155,7 @@ void searchSeed(unsigned long seed) {
         moveChip(route[i++], &chipIndex, map);
         if (map[chipIndex] == BLOB_N) return;
 
-        for (int j=0; j < 80; j++) {
+        for (int j=0; j < NUM_BLOBS; j++) {
             moveBlob(&seed, &monsterList[j], map);
         }
         if (map[chipIndex] == BLOB_N) return;
