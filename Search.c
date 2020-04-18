@@ -52,7 +52,7 @@ static unsigned char mapInitial[1024];
 static int chipIndexInitial;
 static pthread_t* threadIDs;
 
-int main(int argc, const char* argv[]) {
+int main() {
     FILE *file;
 
     file = fopen("blobnet.bin", "rb");
@@ -71,7 +71,7 @@ int main(int argc, const char* argv[]) {
     fclose(file);
 
     int listIndex = 0; //Put all the blobs into a list
-    for (int c = 0; c < sizeof(mapInitial); c++) {
+    for (int c = 0; c < (int)sizeof(mapInitial); c++) {
         char tile = mapInitial[c];
         switch (tile) {
             case(BLOB_N): ;
