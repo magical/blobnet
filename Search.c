@@ -95,7 +95,10 @@ int main(int argc, const char* argv[]) {
         }
     }
 
-    long numThreads = strtol(getenv("NUMBER_OF_PROCESSORS"), NULL, 10); //This makes the entire program windows only
+    long numThreads = 2;
+    if (getenv("NUMBER_OF_PROCESSORS")) {
+        numThreads = strtol(getenv("NUMBER_OF_PROCESSORS"), NULL, 10);
+    }
 
     threadIDs = malloc((numThreads - 1) * sizeof(pthread_t));
     //unsigned long lastSeed = 2147483647UL;
