@@ -4,7 +4,6 @@
 #include <pthread.h>
 #include <time.h>
 #include "random.h"
-#include "direction.h"
 
 // Tiles
 #define FLOOR       0x00
@@ -12,6 +11,14 @@
 #define GRAVEL      0x2D
 #define BLOB_N      0x5C
 #define CHIP_S      0x6E
+
+/*
+ * How each move is represented via the index position system
+ */
+#define MOVE_DOWN    32
+#define MOVE_UP     -32
+#define MOVE_RIGHT    1
+#define MOVE_LEFT    -1
 
 typedef struct BLOB {
     int index;
@@ -23,6 +30,10 @@ void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]);
 void moveChip(char dir, int *chipIndex, unsigned char upper[]);
 void searchSeed(unsigned long seed);
 void* searchPools(void* args);
+
+static char left(char dir);
+static char back(char dir);
+static char right(char dir);
 
 typedef struct POOLINFO {
     unsigned long poolStart;
@@ -193,4 +204,38 @@ void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]) {
 
 static int canEnter(unsigned char tile) {
     return (tile == FLOOR);
+}
+
+
+static char left(char dir) {
+    switch (dir) {
+        case (MOVE_DOWN): return MOVE_RIGHT;
+        case (MOVE_UP): return MOVE_LEFT;
+        case (MOVE_RIGHT): return MOVE_UP;
+        case (MOVE_LEFT): return MOVE_DOWN;
+        default:
+            return 0;
+    }
+}
+
+static char back(char dir) {
+    switch (dir) {
+        case (MOVE_DOWN): return MOVE_UP;
+        case (MOVE_UP): return MOVE_DOWN;
+        case (MOVE_RIGHT): return MOVE_LEFT;
+        case (MOVE_LEFT): return MOVE_RIGHT;
+        default:
+            return 0;
+    }
+}
+
+static char right(char dir) {
+    switch (dir) {
+        case (MOVE_DOWN): return MOVE_LEFT;
+        case (MOVE_UP): return MOVE_RIGHT;
+        case (MOVE_RIGHT): return MOVE_DOWN;
+        case (MOVE_LEFT): return MOVE_UP;
+        default:
+            return 0;
+    }
 }
