@@ -120,7 +120,7 @@ int main(int argc, const char* argv[]) {
     threadIDs = malloc((numThreads - 1) * sizeof(pthread_t));
     //unsigned long lastSeed = 2147483647UL;
     unsigned long lastSeed = 100000;
-    unsigned long seedPoolSize = lastSeed/numThreads;
+    unsigned long seedPoolSize = lastSeed/(numThreads-1);
 
     clock_t time_a = clock();
 
