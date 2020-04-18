@@ -11,6 +11,13 @@
 #define BLOB_N      0x5C
 #define CHIP_S      0x6E
 
+enum {
+    NORTH = 0,
+    EAST = 1,
+    SOUTH = 2,
+    WEST = 3
+};
+
 /*
  * How each move is represented via the index position system
  */
@@ -19,9 +26,12 @@
 #define MOVE_RIGHT    1
 #define MOVE_LEFT    -1
 
+typedef signed char DIR;
+static const DIR diridx[4] = { MOVE_UP, MOVE_RIGHT, MOVE_DOWN, MOVE_LEFT };
+
 typedef struct BLOB {
     int index;
-    char dir;
+    DIR dir;
 } BLOB;
 
 static int canEnter(unsigned char tile);
@@ -29,10 +39,6 @@ static void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]);
 static void moveChip(char dir, int *chipIndex, unsigned char upper[]);
 static void searchSeed(unsigned long seed);
 static void* searchPools(void* args);
-
-static char left(char dir);
-static char back(char dir);
-static char right(char dir);
 
 static void nextvalue(unsigned long* currentValue);
 void advance79(unsigned long* currentValue);
@@ -75,7 +81,7 @@ int main() {
         char tile = mapInitial[c];
         switch (tile) {
             case(BLOB_N): ;
-                BLOB b = {c, MOVE_UP}; //All the blobs are facing up
+                BLOB b = {c, NORTH}; //All the blobs are facing up
                 if (listIndex < NUM_BLOBS) {
                     monsterListInitial[listIndex] = b;
                     listIndex++;
@@ -187,21 +193,27 @@ static void moveChip(char dir, int *chipIndex, unsigned char map[]) {
     if (map[*chipIndex] == COSMIC_CHIP) map[*chipIndex] = FLOOR;
 }
 
+static const DIR turndirs[4][4] = {
+    // ahead, left, back, right
+    { NORTH, WEST, SOUTH, EAST }, // NORTH
+    { EAST, NORTH, WEST, SOUTH }, // EAST
+    { SOUTH, EAST, NORTH, WEST }, // SOUTH
+    { WEST, SOUTH, EAST, NORTH }, // WEST
+};
 
 static void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]) {
-    int directions[4] = {b->dir, left(b->dir), back(b->dir), right(b->dir)};
-
-    randomp4(seed, directions);
+    int order[4] = {0, 1, 2, 3};
+    randomp4(seed, order);
 
     for (int i=0; i<4; i++) {
-        int dir = directions[i];
-        unsigned char tile = upper[b->index + dir];
+        int dir = turndirs[b->dir][order[i]];
+        unsigned char tile = upper[b->index + diridx[dir]];
 
         if (canEnter(tile)) {
             upper[b->index] = FLOOR;
-            upper[b->index + dir] = BLOB_N;
+            upper[b->index + diridx[dir]] = BLOB_N;
             b->dir = dir;
-            b->index += dir;
+            b->index += diridx[dir];
             return;
         }
     }
@@ -209,40 +221,6 @@ static void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]) {
 
 static int canEnter(unsigned char tile) {
     return (tile == FLOOR);
-}
-
-
-static char left(char dir) {
-    switch (dir) {
-        case (MOVE_DOWN): return MOVE_RIGHT;
-        case (MOVE_UP): return MOVE_LEFT;
-        case (MOVE_RIGHT): return MOVE_UP;
-        case (MOVE_LEFT): return MOVE_DOWN;
-        default:
-            return 0;
-    }
-}
-
-static char back(char dir) {
-    switch (dir) {
-        case (MOVE_DOWN): return MOVE_UP;
-        case (MOVE_UP): return MOVE_DOWN;
-        case (MOVE_RIGHT): return MOVE_LEFT;
-        case (MOVE_LEFT): return MOVE_RIGHT;
-        default:
-            return 0;
-    }
-}
-
-static char right(char dir) {
-    switch (dir) {
-        case (MOVE_DOWN): return MOVE_LEFT;
-        case (MOVE_UP): return MOVE_RIGHT;
-        case (MOVE_RIGHT): return MOVE_DOWN;
-        case (MOVE_LEFT): return MOVE_UP;
-        default:
-            return 0;
-    }
 }
 
 static void nextvalue(unsigned long* currentValue)
