@@ -1,12 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <pthread.h>
 #include <time.h>
 
 // Tiles
 #define FLOOR       0x00
+#define WALL        0x01
 #define COSMIC_CHIP 0x02
+#define EXIT        0x15
 #define GRAVEL      0x2D
 #define BLOB_N      0x5C
 #define CHIP_S      0x6E
@@ -34,6 +37,7 @@ typedef struct BLOB {
     DIR dir;
 } BLOB;
 
+static bool verifyRoute(void);
 static int canEnter(unsigned char tile);
 static void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]);
 static void moveChip(char dir, int *chipIndex, unsigned char upper[]);
@@ -118,6 +122,11 @@ int main() {
         }
     }
 
+    if (!verifyRoute()) {
+        printf("invalid route\n");
+        return 1;
+    }
+
     long numThreads = 2;
     if (getenv("NUMBER_OF_PROCESSORS")) {
         numThreads = strtol(getenv("NUMBER_OF_PROCESSORS"), NULL, 10);
@@ -161,6 +170,39 @@ static void* searchPools(void* args) {
         searchSeed(seed);
     }
     return NULL;
+}
+
+static bool verifyRoute(void) {
+    int chipIndex = chipIndexInitial;
+    unsigned char map[1024];
+    BLOB monsterList[NUM_BLOBS];
+    memcpy(map, mapInitial, 1024);
+    memcpy(monsterList, monsterListInitial, sizeof(struct BLOB)*NUM_BLOBS);
+
+    int chipsNeeded = 88;
+    int ok = true;
+    for (int i = 0; i < routeLength; i++) {
+        int dir = route[i];
+        chipIndex = chipIndex + dir;
+        if (map[chipIndex] == WALL) {
+            printf("hit a wall at move %d\n", i);
+            ok = false;
+            break;
+        }
+        if (map[chipIndex] == COSMIC_CHIP) {
+            map[chipIndex] = FLOOR;
+            chipsNeeded -= 1;
+        }
+    }
+    if (chipsNeeded > 0) {
+        printf("route does not collect all chips\n");
+        ok = false;
+    }
+    if (map[chipIndex] != EXIT) {
+        printf("route does not reach the exit\n");
+        ok = false;
+    }
+    return ok;
 }
 
 static void searchSeed(unsigned long seed) {
