@@ -133,23 +133,23 @@ int main() {
     }
 
     threadIDs = malloc((numThreads - 1) * sizeof(pthread_t));
-    //unsigned long lastSeed = 2147483647UL;
-    unsigned long lastSeed = 100000;
-    unsigned long seedPoolSize = lastSeed/numThreads;
+    unsigned long firstSeed = 0;
+    unsigned long lastSeed = 2147483647UL;
+    unsigned long seedPoolSize = (lastSeed-firstSeed+1)/numThreads;
 
     clock_t time_a = clock();
 
     for (long threadNum = 0; threadNum < numThreads - 1; threadNum++) {  //Run a number of threads equal to system threads - 1
         POOLINFO* poolInfo = malloc(sizeof(POOLINFO)); //Starting seed and ending seed
-        poolInfo->poolStart = seedPoolSize * threadNum;
-        poolInfo->poolEnd = seedPoolSize * (threadNum + 1) - 1;
+        poolInfo->poolStart = firstSeed + seedPoolSize * threadNum;
+        poolInfo->poolEnd = firstSeed + seedPoolSize * (threadNum + 1) - 1;
         printf("Thread #%ld: start=%#lx\tend=%#lx\n", threadNum, poolInfo->poolStart, poolInfo->poolEnd);
 
         pthread_create(&threadIDs[threadNum], NULL, searchPools, (void*) poolInfo);
     }
 
     POOLINFO* poolInfo = malloc(sizeof(POOLINFO)); //Use the already existing main thread to do the last pool
-    poolInfo->poolStart = seedPoolSize * (numThreads - 1);
+    poolInfo->poolStart = firstSeed + seedPoolSize * (numThreads - 1);
     poolInfo->poolEnd = lastSeed;
     printf("Main thread: start=%#lx\tend=%#lx\n", poolInfo->poolStart, poolInfo->poolEnd);
     searchPools((void*) poolInfo);
@@ -160,8 +160,8 @@ int main() {
 
     clock_t time_b = clock();
 
-    printf("searched %ld seeds in %f ms\n", lastSeed, (time_b-time_a) * (1e3 / CLOCKS_PER_SEC));
-    printf("average %.1f us/seed\n", (time_b-time_a) * (1e6 / CLOCKS_PER_SEC) / lastSeed);
+    printf("searched %ld seeds in %f ms\n", lastSeed-firstSeed+1, (time_b-time_a) * (1e3 / CLOCKS_PER_SEC));
+    printf("average %.1f us/seed\n", (time_b-time_a) * (1e6 / CLOCKS_PER_SEC) / (lastSeed-firstSeed+1));
 }
 
 static void* searchPools(void* args) {
