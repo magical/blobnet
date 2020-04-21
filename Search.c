@@ -41,7 +41,7 @@ static bool verifyRoute(void);
 static int canEnter(unsigned char tile);
 static void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]);
 static void moveChip(char dir, int *chipIndex, unsigned char upper[]);
-static void searchSeed(unsigned long seed);
+static void searchSeed(unsigned long seed, int step);
 static void* searchPools(void* args);
 
 static void nextvalue(unsigned long* currentValue);
@@ -62,21 +62,26 @@ static unsigned char mapInitial[1024];
 static int chipIndexInitial;
 static pthread_t* threadIDs;
 
-int main() {
+int main(int argc, const char* argv[]) {
+    if (argc == 1) {
+        printf("Please enter the filename for the route to test\n");
+        return 0;
+    }
+
     FILE *file;
 
     file = fopen("blobnet.bin", "rb");
     fread(mapInitial, sizeof(mapInitial), 1, file);
     fclose(file);
 
-    file = fopen("route.txt", "rb");
+    file = fopen(argv[1], "rb"); //The route filename should be provided via command line
     char character;
     while ((character = fgetc(file)) != EOF) { //Sharpeye's code for getting a file size that doesn't rely on SEEK_END
         routeLength++; //EOF is not a part of the original file and therefore incrementing the variable even after hitting means that the variable is equal to the file size
     }
     rewind(file);
     //The search loop reads two moves at a time, so add some padding at the end so we don't read past the array bounds.
-    route = calloc(routeLength+10, sizeof(char)); //Create an array who's size is based on the route file size
+    route = calloc(routeLength+10, sizeof(char)); //Create an array who's size is based on the route file size, calloc o inits the meory area
     fread(route, routeLength, 1, file);
     fclose(file);
 
@@ -114,7 +119,7 @@ int main() {
                 route[r] = MOVE_LEFT;
                 break;
             case (0):
-                break; //See the thing about even routes above
+                break; //0 corresponds to a wait/do nothing
             default:
                 printf("ILLEGAL DIRECTION CHARACTER AT ROUTE POSITION %d, CHARACTER: %c\n", r, direction);
                 route[r] = 0; //don't want things getting messed up
@@ -167,7 +172,8 @@ int main() {
 static void* searchPools(void* args) {
     POOLINFO *poolInfo = ((POOLINFO*) args);
     for (unsigned long seed = poolInfo->poolStart; seed <= poolInfo->poolEnd; seed++) {
-        searchSeed(seed);
+        searchSeed(seed, 1); //EVEN then ODD
+        searchSeed(seed, 0);
     }
     return NULL;
 }
@@ -205,7 +211,7 @@ static bool verifyRoute(void) {
     return ok;
 }
 
-static void searchSeed(unsigned long seed) {
+static void searchSeed(unsigned long seed, int step) { //Step: 1 = EVEN, 0 = ODD
     unsigned long startingSeed = seed;
     int chipIndex = chipIndexInitial;
     unsigned char map[1024];
@@ -213,8 +219,10 @@ static void searchSeed(unsigned long seed) {
     memcpy(map, mapInitial, 1024);
     memcpy(monsterList, monsterListInitial, sizeof(struct BLOB)*NUM_BLOBS); //Set up copies of the arrays to be used so we don't have to read from file each time
 
-    moveChip(route[0], &chipIndex, map);
-    int i=1;
+    if (step) {
+        moveChip(route[0], &chipIndex, map);
+    }
+    int i=step;
     while (i < routeLength) {
         moveChip(route[i++], &chipIndex, map);
         if (map[chipIndex] == BLOB_N) return;
@@ -227,7 +235,7 @@ static void searchSeed(unsigned long seed) {
         moveChip(route[i++], &chipIndex, map);
         if (map[chipIndex] == BLOB_N) return;
     }
-    printf("Successful seed: %lu\n", startingSeed);
+    printf("Successful seed: %lu, Step: %c\n", startingSeed, step ? 'E' : 'O');
 }
 
 static void moveChip(char dir, int *chipIndex, unsigned char map[]) {
