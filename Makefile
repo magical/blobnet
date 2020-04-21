@@ -1,5 +1,5 @@
 Blob: *.c Makefile
-	gcc -ggdb Search.c -pthread -Wall -Wextra -O2 -o Blob
+	gcc -O2 -ggdb -fopenmp -Wall -Wextra -O2 -o Blob Search.c
 
 Blob.exe: *.c Makefile
-	i686-w64-mingw32-gcc -static -ggdb Search.c -pthread -Wall -Wextra -O2 -o Blob.exe
+	i686-w64-mingw32-gcc -O2 -ggdb -fopenmp -Wall -Wextra -static -o Blob.exe Search.c

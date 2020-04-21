@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-#include <pthread.h>
+#include <omp.h>
 #include <time.h>
 
 // Tiles
@@ -56,13 +56,6 @@ static int canEnter(unsigned char tile);
 static void moveBlob(struct prng*, BLOB* b, unsigned char upper[]);
 static void moveChip(char dir, int *chipIndex, unsigned char upper[]);
 static void searchSeed(unsigned long seed, int step, uint64_t* nummoves);
-static void* searchPools(void* args);
-
-typedef struct POOLINFO {
-    unsigned long poolStart;
-    unsigned long poolEnd;
-    uint64_t nummoves; //output
-} POOLINFO;
 
 static char* route;
 static int routeLength = 0;
@@ -145,68 +138,35 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
-    long numThreads = 2;
-    if (getenv("NUMBER_OF_PROCESSORS")) {
-        numThreads = strtol(getenv("NUMBER_OF_PROCESSORS"), NULL, 10);
-    }
+    long numThreads = omp_get_num_procs();
+    omp_set_num_threads(numThreads);
+    printf("using %ld threads\n", numThreads);
 
-    pthread_t* threadIDs = malloc((numThreads - 1) * sizeof(pthread_t));
     unsigned long firstSeed = 0;
     unsigned long lastSeed = 2147483647UL;
     firstSeed = 574199820 - 50000;
     lastSeed = 574199820 + 50000;
 
-    unsigned long seedPoolSize = (lastSeed-firstSeed+1)/numThreads;
-
-    clock_t time_a = clock();
-
-    for (long threadNum = 0; threadNum < numThreads - 1; threadNum++) {  //Run a number of threads equal to system threads - 1
-        POOLINFO* poolInfo = malloc(sizeof(POOLINFO)); //Starting seed and ending seed
-        poolInfo->poolStart = firstSeed + seedPoolSize * threadNum;
-        poolInfo->poolEnd = firstSeed + seedPoolSize * (threadNum + 1) - 1;
-        printf("Thread #%ld: start=%#lx\tend=%#lx\n", threadNum, poolInfo->poolStart, poolInfo->poolEnd);
-
-        pthread_create(&threadIDs[threadNum], NULL, searchPools, (void*) poolInfo);
-    }
-
-    POOLINFO* poolInfo = malloc(sizeof(POOLINFO)); //Use the already existing main thread to do the last pool
-    poolInfo->poolStart = firstSeed + seedPoolSize * (numThreads - 1);
-    poolInfo->poolEnd = lastSeed;
-    printf("Main thread: start=%#lx\tend=%#lx\n", poolInfo->poolStart, poolInfo->poolEnd);
-    searchPools(poolInfo);
+    double time_a = omp_get_wtime();
 
     uint64_t nummoves = 0;
-    nummoves += poolInfo->nummoves;
-    free(poolInfo);
-
-    for (int t = 0; t < numThreads - 1; t++) { //Make the main thread wait for the other threads to finish so the program doesn't end early
-        void* retval = NULL;
-        pthread_join(threadIDs[t], &retval);
-        POOLINFO* poolInfo = retval;
-        nummoves += poolInfo->nummoves;
-        free(poolInfo);
+    #pragma omp parallel for default(none) shared(firstSeed,lastSeed),reduction(+:nummoves)
+    for (unsigned long seed = firstSeed; seed <= lastSeed; seed++) {
+        //int threadNum = omp_get_thread_num();
+        searchSeed(seed, EVEN, &nummoves);
+        searchSeed(seed, ODD, &nummoves);
     }
 
-    free(threadIDs);
+    // printf("Thread #%ld: start=%#lx\tend=%#lx\n", threadNum, poolInfo->poolStart, poolInfo->poolEnd);
 
     unsigned long numSeeds = lastSeed - firstSeed + 1;
-    clock_t time_b = clock();
+    double time_b = omp_get_wtime();
     double duration = time_b - time_a;
 
-    printf("searched %lu seeds in %f ms\n", numSeeds, duration * (1e3 / CLOCKS_PER_SEC));
+    printf("searched %lu seeds in %f ms\n", numSeeds, duration * 1e3);
     printf("played %lu moves\n", (unsigned long)nummoves);
-    printf("average %.1f us/seed\n", duration * (1e6 / CLOCKS_PER_SEC) / numSeeds);
+    printf("average %.1f us/seed\n", duration * 1e6 / numSeeds);
     printf("average %.1f moves/seed\n", (double)nummoves / numSeeds);
-}
-
-static void* searchPools(void* arg) {
-    POOLINFO *poolInfo = arg;
-    poolInfo->nummoves = 0;
-    for (unsigned long seed = poolInfo->poolStart; seed <= poolInfo->poolEnd; seed++) {
-        searchSeed(seed, EVEN, &poolInfo->nummoves);
-        searchSeed(seed, ODD, &poolInfo->nummoves);
-    }
-    return poolInfo;
 }
 
 static bool verifyRoute(void) {
