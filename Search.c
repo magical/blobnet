@@ -1,7 +1,8 @@
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
 #include <pthread.h>
 #include <time.h>
 
@@ -37,6 +38,14 @@ enum {
 typedef signed char DIR;
 static const DIR diridx[4] = { MOVE_UP, MOVE_RIGHT, MOVE_DOWN, MOVE_LEFT };
 
+struct prng {
+    uint32_t value;
+};
+
+static void advance(struct prng *rng);
+void advance79(struct prng *rng);
+static void randomp4(struct prng *rng, int* array);
+
 typedef struct BLOB {
     int index;
     DIR dir;
@@ -44,14 +53,10 @@ typedef struct BLOB {
 
 static bool verifyRoute(void);
 static int canEnter(unsigned char tile);
-static void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]);
+static void moveBlob(struct prng*, BLOB* b, unsigned char upper[]);
 static void moveChip(char dir, int *chipIndex, unsigned char upper[]);
 static void searchSeed(unsigned long seed, int step);
 static void* searchPools(void* args);
-
-static void nextvalue(unsigned long* currentValue);
-void advance79(unsigned long* currentValue);
-static void randomp4(unsigned long* currentValue, int* array);
 
 typedef struct POOLINFO {
     unsigned long poolStart;
@@ -221,8 +226,8 @@ static bool verifyRoute(void) {
     return ok;
 }
 
-static void searchSeed(unsigned long seed, int step) { //Step: 1 = EVEN, 0 = ODD
-    unsigned long startingSeed = seed;
+static void searchSeed(unsigned long startingSeed, int step) { //Step: 1 = EVEN, 0 = ODD
+    struct prng rng = {startingSeed};
     int chipIndex = chipIndexInitial;
     unsigned char map[1024];
     BLOB monsterList[NUM_BLOBS];
@@ -238,7 +243,7 @@ static void searchSeed(unsigned long seed, int step) { //Step: 1 = EVEN, 0 = ODD
         if (map[chipIndex] == BLOB_N) return;
 
         for (int j=0; j < NUM_BLOBS; j++) {
-            moveBlob(&seed, &monsterList[j], map);
+            moveBlob(&rng, &monsterList[j], map);
         }
         if (map[chipIndex] == BLOB_N) return;
 
@@ -261,9 +266,9 @@ static const DIR turndirs[4][4] = {
     { WEST, SOUTH, EAST, NORTH }, // WEST
 };
 
-static void moveBlob(unsigned long* seed, BLOB* b, unsigned char upper[]) {
+static void moveBlob(struct prng *rng, BLOB* b, unsigned char upper[]) {
     int order[4] = {0, 1, 2, 3};
-    randomp4(seed, order);
+    randomp4(rng, order);
 
     for (int i=0; i<4; i++) {
         int dir = turndirs[b->dir][order[i]];
@@ -283,31 +288,31 @@ static int canEnter(unsigned char tile) {
     return (tile == FLOOR);
 }
 
-static void nextvalue(unsigned long* currentValue)
+static void advance(struct prng *rng)
 {
-    *currentValue = ((*currentValue * 1103515245UL) + 12345UL) & 0x7FFFFFFFUL; //Same generator/advancement Tile World uses
+    rng->value = ((rng->value * 1103515245UL) + 12345UL) & 0x7FFFFFFFUL; //Same generator/advancement Tile World uses
 }
 
 /*
  * Advance the RNG state by 79 values all at once
 */
-void advance79(unsigned long* currentValue)
+void advance79(struct prng *rng)
 {
-    *currentValue = ((*currentValue * 2441329573UL) + 2062159411UL) & 0x7FFFFFFFUL;
+    rng->value = ((rng->value * 2441329573UL) + 2062159411UL) & 0x7FFFFFFFUL;
 }
 
 /* Randomly permute a list of four values. Three random numbers are
  * used, with the ranges [0,1], [0,1,2], and [0,1,2,3].
  */
-static void randomp4(unsigned long* currentValue, int* array)
+static void randomp4(struct prng *rng, int* array)
 {
     int	n, t;
 
-    nextvalue(currentValue);
-    n = *currentValue >> 30;
+    advance(rng);
+    n = rng->value >> 30;
     t = array[n];  array[n] = array[1];  array[1] = t;
-    n = (int)((3.0 * (*currentValue & 0x0FFFFFFFUL)) / (double)0x10000000UL);
+    n = (int)((3.0 * (rng->value & 0x0FFFFFFFUL)) / (double)0x10000000UL);
     t = array[n];  array[n] = array[2];  array[2] = t;
-    n = (*currentValue >> 28) & 3;
+    n = (rng->value >> 28) & 3;
     t = array[n];  array[n] = array[3];  array[3] = t;
 }
