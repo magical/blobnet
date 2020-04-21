@@ -55,12 +55,13 @@ static bool verifyRoute(void);
 static int canEnter(unsigned char tile);
 static void moveBlob(struct prng*, BLOB* b, unsigned char upper[]);
 static void moveChip(char dir, int *chipIndex, unsigned char upper[]);
-static void searchSeed(unsigned long seed, int step);
+static void searchSeed(unsigned long seed, int step, uint64_t* nummoves);
 static void* searchPools(void* args);
 
 typedef struct POOLINFO {
     unsigned long poolStart;
     unsigned long poolEnd;
+    uint64_t nummoves; //output
 } POOLINFO;
 
 static char* route;
@@ -70,7 +71,6 @@ static int routeLength = 0;
 static BLOB monsterListInitial[NUM_BLOBS]; //80 blobs in the level, the list simply keeps track of the current position/index of each blob as it appears in the level (order is of course that of the monster list)
 static unsigned char mapInitial[1024];
 static int chipIndexInitial;
-static pthread_t* threadIDs;
 
 int main(int argc, const char* argv[]) {
     if (argc == 1) {
@@ -150,7 +150,7 @@ int main(int argc, const char* argv[]) {
         numThreads = strtol(getenv("NUMBER_OF_PROCESSORS"), NULL, 10);
     }
 
-    threadIDs = malloc((numThreads - 1) * sizeof(pthread_t));
+    pthread_t* threadIDs = malloc((numThreads - 1) * sizeof(pthread_t));
     unsigned long firstSeed = 0;
     unsigned long lastSeed = 2147483647UL;
     unsigned long seedPoolSize = (lastSeed-firstSeed+1)/numThreads;
@@ -170,27 +170,40 @@ int main(int argc, const char* argv[]) {
     poolInfo->poolStart = firstSeed + seedPoolSize * (numThreads - 1);
     poolInfo->poolEnd = lastSeed;
     printf("Main thread: start=%#lx\tend=%#lx\n", poolInfo->poolStart, poolInfo->poolEnd);
-    searchPools((void*) poolInfo);
+    searchPools(poolInfo);
+
+    uint64_t nummoves = 0;
+    nummoves += poolInfo->nummoves;
+    free(poolInfo);
 
     for (int t = 0; t < numThreads - 1; t++) { //Make the main thread wait for the other threads to finish so the program doesn't end early
-        pthread_join(threadIDs[t], NULL);
+        void* retval = NULL;
+        pthread_join(threadIDs[t], &retval);
+        POOLINFO* poolInfo = retval;
+        nummoves += poolInfo->nummoves;
+        free(poolInfo);
     }
+
+    free(threadIDs);
 
     unsigned long numSeeds = lastSeed - firstSeed + 1;
     clock_t time_b = clock();
     double duration = time_b - time_a;
 
     printf("searched %lu seeds in %f ms\n", numSeeds, duration * (1e3 / CLOCKS_PER_SEC));
+    printf("played %lu moves\n", (unsigned long)nummoves);
     printf("average %.1f us/seed\n", duration * (1e6 / CLOCKS_PER_SEC) / numSeeds);
+    printf("average %.1f moves/seed\n", (double)nummoves / numSeeds);
 }
 
-static void* searchPools(void* args) {
-    POOLINFO *poolInfo = ((POOLINFO*) args);
+static void* searchPools(void* arg) {
+    POOLINFO *poolInfo = arg;
+    poolInfo->nummoves = 0;
     for (unsigned long seed = poolInfo->poolStart; seed <= poolInfo->poolEnd; seed++) {
-        searchSeed(seed, EVEN);
-        searchSeed(seed, ODD);
+        searchSeed(seed, EVEN, &poolInfo->nummoves);
+        searchSeed(seed, ODD, &poolInfo->nummoves);
     }
-    return NULL;
+    return poolInfo;
 }
 
 static bool verifyRoute(void) {
@@ -226,7 +239,7 @@ static bool verifyRoute(void) {
     return ok;
 }
 
-static void searchSeed(unsigned long startingSeed, int step) { //Step: 1 = EVEN, 0 = ODD
+static void searchSeed(unsigned long startingSeed, int step, uint64_t *nummoves) { //Step: 1 = EVEN, 0 = ODD
     struct prng rng = {startingSeed};
     int chipIndex = chipIndexInitial;
     unsigned char map[1024];
@@ -240,17 +253,22 @@ static void searchSeed(unsigned long startingSeed, int step) { //Step: 1 = EVEN,
     int i=step;
     while (i < routeLength) {
         moveChip(route[i++], &chipIndex, map);
-        if (map[chipIndex] == BLOB_N) return;
+        if (map[chipIndex] == BLOB_N) goto fail;
 
         for (int j=0; j < NUM_BLOBS; j++) {
             moveBlob(&rng, &monsterList[j], map);
         }
-        if (map[chipIndex] == BLOB_N) return;
+        if (map[chipIndex] == BLOB_N) goto fail;
 
         moveChip(route[i++], &chipIndex, map);
-        if (map[chipIndex] == BLOB_N) return;
+        if (map[chipIndex] == BLOB_N) goto fail;
     }
+    *nummoves += i;
     printf("Successful seed: %lu, Step: %s\n", startingSeed, step == EVEN ? "even" : "odd");
+    return;
+fail:
+    *nummoves += i;
+    return;
 }
 
 static void moveChip(char dir, int *chipIndex, unsigned char map[]) {
