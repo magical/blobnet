@@ -65,18 +65,29 @@ static BLOB monsterListInitial[NUM_BLOBS]; //80 blobs in the level, the list sim
 static unsigned char mapInitial[1024];
 static int chipIndexInitial;
 
+// See https://flak.tedunangst.com/post/embedding-binary-objects-in-c
+#ifdef WIN32
+#define _binary_blobnet_bin_start binary_blobnet_bin_start
+#define _binary_blobnet_bin_size binary_blobnet_bin_size
+#endif
+extern const void _binary_blobnet_bin_start;
+extern const void _binary_blobnet_bin_size;
+const char* blobnet_start = (char*)&_binary_blobnet_bin_start;
+const size_t blobnet_size = (size_t)&_binary_blobnet_bin_size;
+
 int main(int argc, const char* argv[]) {
     if (argc == 1) {
         printf("Please enter the filename for the route to test\n");
         return 0;
     }
 
+    if (blobnet_size != 2*sizeof(mapInitial)) {
+        printf("internal error: size mismatch in map (want %lu, found %lu)\n", (unsigned long)2*sizeof(mapInitial), (unsigned long)blobnet_size);
+        return 1;
+    }
+    memmove(mapInitial, blobnet_start, sizeof(mapInitial));
+
     FILE *file;
-
-    file = fopen("blobnet.bin", "rb");
-    fread(mapInitial, sizeof(mapInitial), 1, file);
-    fclose(file);
-
     file = fopen(argv[1], "rb"); //The route filename should be provided via command line
     char character;
     while ((character = fgetc(file)) != EOF) { //Sharpeye's code for getting a file size that doesn't rely on SEEK_END
