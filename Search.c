@@ -277,17 +277,17 @@ static void moveBlob(struct prng *rng, BLOB* b, unsigned char upper[]) {
     if (canEnter(upper[index])) {
         goto ok;
     }
+
     unsigned int todo = 7;
     do {
         int turn = randn(rng, 3);
-        if (!(todo & (1U<<turn))) {
-            continue;
-        }
-        todo &= ~(1U<<turn);
-        dir = turndirs[facedir][turn];
-        index = b->index + diridx[dir];
-        if (canEnter(upper[index])) {
-            goto ok;
+        if (todo & (1U<<turn)) {
+            todo &= ~(1U<<turn);
+            dir = turndirs[facedir][turn];
+            index = b->index + diridx[dir];
+            if (canEnter(upper[index])) {
+                goto ok;
+            }
         }
     } while (todo);
     return;
