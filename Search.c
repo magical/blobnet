@@ -3,8 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include <limits.h>
 #include <omp.h>
-#include <time.h>
 
 // Tiles
 #define FLOOR       0x00
@@ -43,8 +43,7 @@ struct prng {
 };
 
 static void advance(struct prng *rng);
-void advance79(struct prng *rng);
-static void randomp4(struct prng *rng, int* array);
+static int randn(struct prng *rng, int max);
 
 typedef struct BLOB {
     int index;
@@ -154,9 +153,9 @@ int main(int argc, const char* argv[]) {
     printf("using %ld threads\n", numThreads);
 
     unsigned long firstSeed = 0;
-    unsigned long lastSeed = 2147483647UL;
-    firstSeed = 574199820 - 50000;
-    lastSeed = 574199820 + 50000;
+    unsigned long lastSeed = SHRT_MAX;
+    //firstSeed = 574199820 - 50000;
+    //lastSeed = 574199820 + 50000;
 
     double time_a = omp_get_wtime();
 
@@ -250,61 +249,69 @@ static void moveChip(char dir, int *chipIndex, unsigned char map[]) {
     if (map[*chipIndex] == COSMIC_CHIP) map[*chipIndex] = FLOOR;
 }
 
+// current dir => turn => new direction
 static const DIR turndirs[4][4] = {
-    // ahead, left, back, right
-    { NORTH, WEST, SOUTH, EAST }, // NORTH
-    { EAST, NORTH, WEST, SOUTH }, // EAST
-    { SOUTH, EAST, NORTH, WEST }, // SOUTH
-    { WEST, SOUTH, EAST, NORTH }, // WEST
+    // left, right, back
+    { WEST, EAST, SOUTH,}, // NORTH
+    { NORTH, SOUTH, WEST, }, // EAST
+    { EAST, WEST, NORTH,}, // SOUTH
+    { SOUTH, NORTH, EAST, }, // WEST
+};
+
+static const DIR xytodir[3][3] = {
+    { -1, NORTH, -1 },
+    { WEST, -1, EAST },
+    { -1, SOUTH, -1 },
 };
 
 static void moveBlob(struct prng *rng, BLOB* b, unsigned char upper[]) {
-    int order[4] = {0, 1, 2, 3};
-    randomp4(rng, order);
+    int dir;
+    int facedir, xdir, ydir;
+    do {
+        xdir = randn(rng, 3);
+        ydir = randn(rng, 3);
+        facedir = xytodir[ydir][xdir];
+    } while (facedir == -1);
 
-    for (int i=0; i<4; i++) {
-        int dir = turndirs[b->dir][order[i]];
-        unsigned char tile = upper[b->index + diridx[dir]];
-
-        if (canEnter(tile)) {
-            upper[b->index] = FLOOR;
-            upper[b->index + diridx[dir]] = BLOB_N;
-            b->dir = dir;
-            b->index += diridx[dir];
-            return;
-        }
+    int index = b->index + diridx[facedir];
+    if (canEnter(upper[index])) {
+        goto ok;
     }
+    unsigned int todo = 7;
+    do {
+        int turn = randn(rng, 3);
+        if (!(todo & (1U<<turn))) {
+            continue;
+        }
+        todo &= ~(1U<<turn);
+        dir = turndirs[facedir][turn];
+        index = b->index + diridx[dir];
+        if (canEnter(upper[index])) {
+            goto ok;
+        }
+    } while (todo);
+    return;
+ok:
+    upper[b->index] = FLOOR;
+    upper[index] = BLOB_N;
+    //b->dir = dir;
+    b->index = index;
+    return;
 }
 
 static int canEnter(unsigned char tile) {
     return (tile == FLOOR);
 }
 
+/* MSCC RNG */
+
 static void advance(struct prng *rng)
 {
-    rng->value = ((rng->value * 1103515245UL) + 12345UL) & 0x7FFFFFFFUL; //Same generator/advancement Tile World uses
+    rng->value = ((rng->value * 0x343FDul) + 0x269EC3ul);
 }
 
-/*
- * Advance the RNG state by 79 values all at once
-*/
-void advance79(struct prng *rng)
+static int randn(struct prng *rng, int n)
 {
-    rng->value = ((rng->value * 2441329573UL) + 2062159411UL) & 0x7FFFFFFFUL;
-}
-
-/* Randomly permute a list of four values. Three random numbers are
- * used, with the ranges [0,1], [0,1,2], and [0,1,2,3].
- */
-static void randomp4(struct prng *rng, int* array)
-{
-    int	n, t;
-
     advance(rng);
-    n = rng->value >> 30;
-    t = array[n];  array[n] = array[1];  array[1] = t;
-    n = (int)((3.0 * (rng->value & 0x0FFFFFFFUL)) / (double)0x10000000UL);
-    t = array[n];  array[n] = array[2];  array[2] = t;
-    n = (rng->value >> 28) & 3;
-    t = array[n];  array[n] = array[3];  array[3] = t;
+    return (int)((rng->value>>16)&0x7fff) % n;
 }
