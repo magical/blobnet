@@ -27,6 +27,10 @@ enum {
     EVEN =1
 };
 
+enum {
+    MS, TW
+};
+
 /*
  * How each move is represented via the index position system
  */
@@ -58,8 +62,7 @@ static int canEnter(unsigned char tile);
 static void moveBlobMS(struct prng*, BLOB* b, unsigned char upper[]);
 static void moveBlobTW(struct prng*, BLOB* b, unsigned char upper[]);
 static void moveChip(char dir, int *chipIndex, unsigned char upper[]);
-static void searchSeedMS(unsigned long seed, int step, uint64_t* nummoves);
-static void searchSeedTW(unsigned long seed, int step, uint64_t* nummoves);
+static void searchSeed(int rngtype, unsigned long seed, int step, uint64_t *nummoves);
 
 static char* route;
 static int routeLength = 0;
@@ -168,10 +171,10 @@ int main(int argc, const char* argv[]) {
     #pragma omp parallel for default(none) shared(firstSeed,lastSeed),reduction(+:nummoves)
     for (unsigned long seed = firstSeed; seed <= lastSeed; seed++) {
         //int threadNum = omp_get_thread_num();
-        searchSeedMS(seed, EVEN, &nummoves);
-        searchSeedMS(seed, ODD, &nummoves);
-        searchSeedTW(seed, EVEN, &nummoves);
-        searchSeedTW(seed, ODD, &nummoves);
+        searchSeed(MS, seed, EVEN, &nummoves);
+        searchSeed(MS, seed, ODD, &nummoves);
+        searchSeed(TW, seed, EVEN, &nummoves);
+        searchSeed(TW, seed, ODD, &nummoves);
     }
 
     // printf("Thread #%ld: start=%#lx\tend=%#lx\n", threadNum, poolInfo->poolStart, poolInfo->poolEnd);
@@ -219,9 +222,7 @@ static bool verifyRoute(void) {
     return ok;
 }
 
-/* TW search */
-
-static void searchSeedTW(unsigned long startingSeed, int step, uint64_t *nummoves) { //Step: 1 = EVEN, 0 = ODD
+static void searchSeed(int rngtype, unsigned long startingSeed, int step, uint64_t *nummoves) { //Step: 1 = EVEN, 0 = ODD
     struct prng rng = {startingSeed};
     int chipIndex = chipIndexInitial;
     unsigned char map[1024];
@@ -238,7 +239,11 @@ static void searchSeedTW(unsigned long startingSeed, int step, uint64_t *nummove
         if (map[chipIndex] == BLOB_N) goto fail;
 
         for (int j=0; j < NUM_BLOBS; j++) {
-            moveBlobTW(&rng, &monsterList[j], map);
+            if (rngtype == TW) {
+                moveBlobTW(&rng, &monsterList[j], map);
+            } else {
+                moveBlobMS(&rng, &monsterList[j], map);
+            }
         }
         if (map[chipIndex] == BLOB_N) goto fail;
 
@@ -246,12 +251,14 @@ static void searchSeedTW(unsigned long startingSeed, int step, uint64_t *nummove
         if (map[chipIndex] == BLOB_N) goto fail;
     }
     *nummoves += i;
-    printf("Successful seed: %lu, Step: %s, TW\n", startingSeed, step == EVEN ? "even" : "odd");
+    printf("Successful seed: %lu, Step: %s, %s\n", startingSeed, step == EVEN ? "even" : "odd", rngtype == TW ? "TW" : "MS");
     return;
 fail:
     *nummoves += i;
     return;
 }
+
+/* TW search */
 
 static const DIR twturndirs[4][4] = {
     // ahead, left, back, right
@@ -309,38 +316,6 @@ static void twrandomp4(struct prng *rng, int* array)
 }
 
 /* MSCC Search */
-
-static void searchSeedMS(unsigned long startingSeed, int step, uint64_t *nummoves) { //Step: 1 = EVEN, 0 = ODD
-    struct prng rng = {startingSeed};
-    int chipIndex = chipIndexInitial;
-    unsigned char map[1024];
-    BLOB monsterList[NUM_BLOBS];
-    memcpy(map, mapInitial, 1024);
-    memcpy(monsterList, monsterListInitial, sizeof(struct BLOB)*NUM_BLOBS); //Set up copies of the arrays to be used so we don't have to read from file each time
-
-    if (step == EVEN) {
-        moveChip(route[0], &chipIndex, map);
-    }
-    int i=step;
-    while (i < routeLength) {
-        moveChip(route[i++], &chipIndex, map);
-        if (map[chipIndex] == BLOB_N) goto fail;
-
-        for (int j=0; j < NUM_BLOBS; j++) {
-            moveBlobMS(&rng, &monsterList[j], map);
-        }
-        if (map[chipIndex] == BLOB_N) goto fail;
-
-        moveChip(route[i++], &chipIndex, map);
-        if (map[chipIndex] == BLOB_N) goto fail;
-    }
-    *nummoves += i;
-    printf("Successful seed: %lu, Step: %s, MS\n", startingSeed, step == EVEN ? "even" : "odd");
-    return;
-fail:
-    *nummoves += i;
-    return;
-}
 
 static void moveChip(char dir, int *chipIndex, unsigned char map[]) {
     *chipIndex = *chipIndex + dir;
